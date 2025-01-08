@@ -681,6 +681,10 @@ func (h *datasetsInsertHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		dataset: &dataset,
 	})
 	if err != nil {
+		if errors.Is(err, metadata.ErrDuplicatedDataset) {
+			errorResponse(ctx, w, errDuplicate(err.Error()))
+			return
+		}
 		errorResponse(ctx, w, errInternalError(err.Error()))
 		return
 	}
