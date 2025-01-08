@@ -425,7 +425,7 @@ func (r *Repository) AddTableData(ctx context.Context, tx *connection.Tx, projec
 	return nil
 }
 
-func (r *Repository) DeleteTables(ctx context.Context, tx *connection.Tx, projectID, datasetID string, tableIDs []string) error {
+func (r *Repository) DeleteTables(ctx context.Context, tx *connection.Tx, projectID, datasetID string, tables []*bigqueryv2.Table) error {
 	tx.SetProjectAndDataset(projectID, datasetID)
 	if err := tx.ContentRepoMode(); err != nil {
 		return err
@@ -434,10 +434,12 @@ func (r *Repository) DeleteTables(ctx context.Context, tx *connection.Tx, projec
 		_ = tx.MetadataRepoMode()
 	}()
 
-	for _, tableID := range tableIDs {
+	for _, table := range tables {
+		tableType := table.Type
+		tableID := table.TableReference.TableId
 		tablePath := r.tablePath(projectID, datasetID, tableID)
 		logger.Logger(ctx).Debug("delete table", zap.String("table", tablePath))
-		query := fmt.Sprintf("DROP TABLE `%s`", tablePath)
+		query := fmt.Sprintf("DROP %s `%s`", tableType, tablePath)
 		if _, err := tx.Tx().ExecContext(ctx, query); err != nil {
 			return fmt.Errorf("failed to delete table %s: %w", query, err)
 		}

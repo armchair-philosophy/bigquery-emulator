@@ -619,12 +619,18 @@ func (h *datasetsDeleteHandler) Handle(ctx context.Context, r *datasetsDeleteReq
 		return fmt.Errorf("failed to delete dataset: %w", err)
 	}
 	if r.deleteContents {
+		var tables []*bigqueryv2.Table
 		for _, table := range r.dataset.Tables() {
 			if err := table.Delete(ctx, tx.Tx()); err != nil {
 				return err
 			}
+			bqTable, err := table.Content()
+			if err != nil {
+				return err
+			}
+			tables = append(tables, bqTable)
 		}
-		if err := r.server.contentRepo.DeleteTables(ctx, tx, r.project.ID, r.dataset.ID, r.dataset.TableIDs()); err != nil {
+		if err := r.server.contentRepo.DeleteTables(ctx, tx, r.project.ID, r.dataset.ID, tables); err != nil {
 			return fmt.Errorf("failed to delete tables: %w", err)
 		}
 	}
@@ -2451,12 +2457,16 @@ func (h *tablesDeleteHandler) Handle(ctx context.Context, r *tablesDeleteRequest
 		return err
 	}
 	// delete table
+	table, err := r.table.Content()
+	if err != nil {
+		return err
+	}
 	if err := r.server.contentRepo.DeleteTables(
 		ctx,
 		tx,
 		r.project.ID,
 		r.dataset.ID,
-		[]string{r.table.ID},
+		[]*bigqueryv2.Table{table},
 	); err != nil {
 		return fmt.Errorf("failed to delete table %s: %w", r.table.ID, err)
 	}
